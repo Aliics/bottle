@@ -6,15 +6,15 @@ import java.net.{ServerSocket, Socket}
 import javax.net.ssl.SSLServerSocket
 import scala.concurrent.{ExecutionContext, Future}
 
-class Server(val port: Int)(using ec: ExecutionContext) extends LazyLogging:
+class Server(val port: Int)(using ExecutionContext) extends LazyLogging:
   private lazy val serverSocket = new ServerSocket(port)
 
   def listenAndHandle(): Future[Unit] =
     serverSocket match
       case unboundServer if !unboundServer.isBound =>
-        Future.failed(Server.NotBound)
+        Future.failed(Server.NotBoundError)
       case closedServer if closedServer.isClosed =>
-        Future.failed(Server.NotOpen)
+        Future.failed(Server.NotOpenError)
       case server =>
         try
           val socket = server.accept()
@@ -26,17 +26,12 @@ class Server(val port: Int)(using ec: ExecutionContext) extends LazyLogging:
             Future.failed(throwable)
 
   private def handleConnection(socket: Socket): Future[Unit] =
-    Future {
-      val inputMessage = socket.getInputStream.readAllBytes()
-        .map(_.toChar)
-        .mkString
-
-      logger.info(s"Input received: $inputMessage")
-    }
+    new RequestWorker(socket)
+      .processIncoming(RequestWorker.State.empty)
 
   def close(): Unit = serverSocket.close()
 
 object Server:
-  case object NotBound extends RuntimeException("Server is not bound")
+  case object NotBoundError extends RuntimeException("Server is not bound")
 
-  case object NotOpen extends RuntimeException("Server is not open")
+  case object NotOpenError extends RuntimeException("Server is not open")

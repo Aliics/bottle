@@ -4,14 +4,27 @@ import com.typesafe.scalalogging.Logger
 
 import java.net.ServerSocket
 import scala.util.{Failure, Success}
+import scala.util.CommandLineParser.FromString
 
-@main def main(): Unit =
+/**
+ * Command line arguments may not be present. In this case,
+ * allow for Option[T] arguments.
+ */
+given optionalArg[T](using clp: FromString[T]): FromString[Option[T]] with
+  override def fromString(string: String): Option[T] =
+    try
+      Some(clp.fromString(string))
+    catch case _: IllegalArgumentException =>
+      None
+
+@main def main(portOverride: Option[Int]): Unit =
   import concurrent.ExecutionContext.Implicits.global
 
   val logger = Logger("Service")
 
-  logger.info("Starting service...")
-  val server = new Server(8605)
+  val port = portOverride getOrElse 8605
+  val server = new Server(port)
+  logger.info(s"Starting server at $port...")
 
   server
     .listenAndHandle()

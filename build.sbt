@@ -11,6 +11,7 @@ lazy val service = (project in file("service"))
     libraryDependencies ++= Seq(
       "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging,
       "org.slf4j" % "slf4j-simple" % Versions.slf4j,
+      "com.lihaoyi" %% "upickle" % Versions.upickle,
     ),
   )
 
