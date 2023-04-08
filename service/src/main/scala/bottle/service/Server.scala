@@ -26,8 +26,8 @@ class Server(val port: Int)(using ExecutionContext) extends LazyLogging:
             Future.failed(throwable)
 
   private def handleConnection(socket: Socket): Future[Unit] =
-    new RequestWorker(socket)
-      .processIncoming(RequestWorker.State.empty)
+    new ServiceWorker(socket)
+      .processIncoming(ServiceWorker.State.empty)
 
   def close(): Unit = serverSocket.close()
 

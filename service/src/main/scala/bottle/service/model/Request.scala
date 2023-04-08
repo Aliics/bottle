@@ -1,12 +1,12 @@
-package bottle.service
+package bottle.service.model
 
 import upickle.default.*
 import upickle.implicits.key
 
 import java.util.UUID
 
-case class Request(id: UUID, message: Message) derives Reader
+case class Request(id: UUID, message: Message) derives ReadWriter
 
-enum Message derives Reader:
+enum Message derives ReadWriter:
   @key("PutRecord")
   case PutRecord(shardId: String, data: String)
