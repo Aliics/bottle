@@ -1,27 +1,27 @@
 package bottle.service
 
-import bottle.service.MessageQueue.Checkpoint
+import bottle.service.MessageStore.Checkpoint
 import bottle.service.model.Message
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class MessageQueue:
-  private val queue: mutable.Map[String, mutable.ArrayBuffer[String]] =
+class MessageStore:
+  private val messagesByShard: mutable.Map[String, mutable.ArrayBuffer[String]] =
     mutable.Map.empty
 
   def putRecord(shardId: String, message: String): Unit =
-    if queue.contains(shardId) then
-      queue(shardId) += message
+    if messagesByShard.contains(shardId) then
+      messagesByShard(shardId) += message
     else
-      queue(shardId) = ArrayBuffer(message)
+      messagesByShard(shardId) = ArrayBuffer(message)
     end if
 
   def fetchRecord(checkpoint: Checkpoint): Option[String] =
     for
-      shardMessages <- queue.get(checkpoint._1)
+      shardMessages <- messagesByShard.get(checkpoint._1)
       if shardMessages.size > checkpoint._2
     yield shardMessages(checkpoint._2)
 
-object MessageQueue:
+object MessageStore:
   type Checkpoint = (String, Int)

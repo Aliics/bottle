@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.util.*
 
-class ServiceWorker(val socket: Socket)(val messageQueue: MessageQueue)(using ExecutionContext) extends LazyLogging:
+class ServiceWorker(val socket: Socket)(val messageStore: MessageStore)(using ExecutionContext) extends LazyLogging:
   private val socketReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
   private val socketWriter = new PrintWriter(socket.getOutputStream, true)
 
@@ -41,7 +41,7 @@ class ServiceWorker(val socket: Socket)(val messageQueue: MessageQueue)(using Ex
           else
             request.message match
               case Message.PutRecord(shardId, data) =>
-                messageQueue.putRecord(shardId, data)
+                messageStore.putRecord(shardId, data)
 
             for
               _ <- writeResponse(Response(request.id, Status.Success))

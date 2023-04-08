@@ -6,7 +6,7 @@ import java.net.{ServerSocket, Socket}
 import javax.net.ssl.SSLServerSocket
 import scala.concurrent.{ExecutionContext, Future}
 
-class ServiceServer(val port: Int)(val messageQueue: MessageQueue)(using ExecutionContext) extends LazyLogging:
+class ServiceServer(val port: Int)(val messageStore: MessageStore)(using ExecutionContext) extends LazyLogging:
   private lazy val serverSocket = new ServerSocket(port)
 
   def listenAndHandle(): Future[Unit] =
@@ -26,7 +26,7 @@ class ServiceServer(val port: Int)(val messageQueue: MessageQueue)(using Executi
             Future.failed(throwable)
 
   private def handleConnection(socket: Socket): Future[Unit] =
-    new ServiceWorker(socket)(messageQueue)
+    new ServiceWorker(socket)(messageStore)
       .processIncoming(ServiceWorker.State.empty)
 
   def close(): Unit = serverSocket.close()

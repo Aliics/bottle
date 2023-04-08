@@ -23,8 +23,8 @@ given optionalArg[T](using clp: FromString[T]): FromString[Option[T]] with
   val logger = Logger("Service")
 
   val port = portOverride getOrElse 8605
-  val messageQueue = new MessageQueue
-  val server = new ServiceServer(port)(messageQueue)
+  val messageStore = new MessageStore
+  val server = new ServiceServer(port)(messageStore)
   logger.info(s"Starting server at $port...")
 
   server

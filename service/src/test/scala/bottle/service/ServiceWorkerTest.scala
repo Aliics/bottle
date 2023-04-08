@@ -15,39 +15,39 @@ import scala.concurrent.duration.Duration
 class ServiceWorkerTest extends AnyFunSpec:
   describe("PutRecord Requests") {
     it("should succeed with unique request") {
-      val messageQueue = new MessageQueue
+      val messageStore = new MessageStore
       val request = Request(
         id = UUID.randomUUID(),
         message = PutRecord("shard", "Hello!"),
       )
-      val response = writeRequest(request, messageQueue)
+      val response = writeRequest(request, messageStore)
 
       assert(response.id == request.id)
       assert(response.status == Status.Success)
-      assert(messageQueue.fetchRecord(("shard", 0)).contains("Hello!"))
+      assert(messageStore.fetchRecord(("shard", 0)).contains("Hello!"))
     }
 
     it("should fail with duplicate request") {
-      val messageQueue = new MessageQueue
+      val messageStore = new MessageStore
       val request = Request(
         id = UUID.randomUUID(),
         message = PutRecord("shard", "Hello!"),
       )
       val response = writeRequest(
         request,
-        messageQueue,
+        messageStore,
         startingState = ServiceWorker.State(request = Some(request)),
       )
 
       assert(response.id == request.id)
       assert(response.status == Status.Failure("Duplicate request id"))
-      assert(messageQueue.fetchRecord(("shard", 0)).isEmpty)
+      assert(messageStore.fetchRecord(("shard", 0)).isEmpty)
     }
   }
 
   private def writeRequest(
     request: Request,
-    messageQueue: MessageQueue,
+    messageStore: MessageStore,
     startingState: ServiceWorker.State = ServiceWorker.State.empty
   ) =
     val serverSocket = new ServerSocket(0)
@@ -63,7 +63,7 @@ class ServiceWorkerTest extends AnyFunSpec:
 
     // Accept connections, and start ServiceWorker.
     val socket = serverSocket.accept()
-    new ServiceWorker(socket)(messageQueue).processIncoming(startingState)
+    new ServiceWorker(socket)(messageStore).processIncoming(startingState)
 
     val responseRaw = Await.result(responseFuture, Duration.Inf)
     read[Response](responseRaw)
