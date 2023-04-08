@@ -1,13 +1,12 @@
 package bottle.service
 
-import java.util.UUID
 import upickle.default.*
+import upickle.implicits.key
 
-case class Request(id: UUID, message: Message)
-object Request:
-  given Reader[Request] = macroR
+import java.util.UUID
 
-  val messageSeparator: String = "\r\n"
+case class Request(id: UUID, message: Message) derives Reader
 
 enum Message derives Reader:
-  case PutRecord(id: UUID, data: String)
+  @key("PutRecord")
+  case PutRecord(shardId: String, data: String)

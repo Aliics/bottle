@@ -3,8 +3,8 @@ package bottle.service
 import com.typesafe.scalalogging.Logger
 
 import java.net.ServerSocket
-import scala.util.{Failure, Success}
 import scala.util.CommandLineParser.FromString
+import scala.util.{Failure, Success}
 
 /**
  * Command line arguments may not be present. In this case,

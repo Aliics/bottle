@@ -12,6 +12,7 @@ lazy val service = (project in file("service"))
       "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging,
       "org.slf4j" % "slf4j-simple" % Versions.slf4j,
       "com.lihaoyi" %% "upickle" % Versions.upickle,
+      "org.scalatest" %% "scalatest" % Versions.scalatest % "test",
     ),
   )
 
