@@ -1,7 +1,8 @@
 package bottle.service
 
+import bottle.service.MessageStore.Checkpoint
 import bottle.service.ServiceWorker.State
-import bottle.service.model.{Message, Request, Response, Status}
+import bottle.service.model.{Request, Response}
 import com.typesafe.scalalogging.LazyLogging
 import upickle.default.*
 
@@ -17,13 +18,11 @@ class ServiceWorker(val socket: Socket)(val messageStore: MessageStore)(using Ex
   private val socketWriter = new PrintWriter(socket.getOutputStream, true)
 
   def processIncoming(prevState: State): Future[Unit] =
-    val readRequestFuture =
-      Future {
-        val messageRaw = socketReader.readLine()
-        read[Request](messageRaw)
-      }
-
-    readRequestFuture
+    Future {
+      // Read message from socket input and serialize to Request.
+      val messageRaw = socketReader.readLine()
+      read[Request](messageRaw)
+    }
       .transformWith {
         case Failure(exception) =>
           // Socket level failure.
@@ -31,29 +30,79 @@ class ServiceWorker(val socket: Socket)(val messageStore: MessageStore)(using Ex
           socket.close()
           Future.failed(exception)
         case Success(request) =>
-          val requestIsDuplicate = prevState.request.exists(_.id == request.id)
-          if requestIsDuplicate then
-            // Previous request ID is the same as the current.
-            // This could cause issues, so we fail the request.
-            for
-              _ <- writeResponse(Response(request.id, Status.Failure("Duplicate request id")))
-            yield None
-          else
-            request.message match
-              case Message.PutRecord(shardId, data) =>
-                messageStore.putRecord(shardId, data)
+          given Request = request
 
-            for
-              _ <- writeResponse(Response(request.id, Status.Success))
-            yield Some(State(request = Some(request)))
-          end if
+          processRequest(prevState)
       }
       .map {
         case Some(state) => processIncoming(state)
         case None => processIncoming(prevState)
       }
 
-  private def writeResponse(response: Response): Future[Unit] =
+  private def processRequest(prevState: State)(using request: Request): Future[Option[State]] =
+    val requestIsDuplicate = prevState.request.exists(_.id == request.id)
+    if requestIsDuplicate then
+    // Previous request ID is the same as the current.
+    // This could cause issues, so we fail the request.
+      for
+        _ <- writeSocketResponse(
+          Response(
+            id = request.id,
+            isSuccess = false,
+            data = Response.Data.Text("Duplicate request id"),
+          ),
+        )
+      yield None
+    else
+    // General message processing. Depending on the message field,
+    // we process the message differently.
+      request.message match
+        case Request.Message.PutRecord(shardId, data) =>
+          messageStore.putRecord(shardId, data)
+          writeResponse()
+        case Request.Message.GetRecord(checkpoint) =>
+          handleGetRecord(checkpoint)
+    end if
+
+  /**
+   * Handle a request for obtaining a single record at a specified
+   * checkpoint. If a record does not exist at this checkpoint, a
+   * failure message is given as a response.
+   * 
+   * @param checkpoint The checkpoint to get the record from.
+   * @param Request Used for response ids and more information.
+   * @return
+   */
+  private def handleGetRecord(checkpoint: Checkpoint)(using Request) =
+    messageStore.fetchRecord(checkpoint) match
+      case (Some(fetchedRecord), nextCheckpoint) =>
+        writeResponse(
+          data = Response.Data.Record(
+            data = fetchedRecord,
+            nextCheckpoint = nextCheckpoint,
+          ),
+        )
+      case _ =>
+        writeResponse(
+          isSuccess = false,
+          data = Response.Data.Text("Record not found"),
+        )
+
+  private def writeResponse(
+    isSuccess: Boolean = true,
+    data: Response.Data = Response.Data.Nothing,
+  )(using request: Request) =
+    for
+      _ <- writeSocketResponse(
+        Response(
+          id = request.id,
+          isSuccess = isSuccess,
+          data = data,
+        ))
+    yield
+      Some(State(request = Option.when(isSuccess)(request)))
+
+  private def writeSocketResponse(response: Response): Future[Unit] =
     Future(socketWriter.println(write(response)))
 
 object ServiceWorker:

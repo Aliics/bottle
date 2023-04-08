@@ -10,7 +10,7 @@ import scala.util.{Failure, Success}
  * Command line arguments may not be present. In this case,
  * allow for Option[T] arguments.
  */
-given optionalArg[T](using clp: FromString[T]): FromString[Option[T]] with
+given optionalArg[T] (using clp: FromString[T]): FromString[Option[T]] with
   override def fromString(string: String): Option[T] =
     try
       Some(clp.fromString(string))
