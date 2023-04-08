@@ -1,7 +1,7 @@
 package bottle.service
 
 import bottle.service.ServiceWorker.State
-import bottle.service.model.{Request, Response, Status}
+import bottle.service.model.{Message, Request, Response, Status}
 import com.typesafe.scalalogging.LazyLogging
 import upickle.default.*
 
@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.util.*
 
-class ServiceWorker(val socket: Socket)(using ExecutionContext) extends LazyLogging:
+class ServiceWorker(val socket: Socket)(val messageQueue: MessageQueue)(using ExecutionContext) extends LazyLogging:
   private val socketReader = new BufferedReader(new InputStreamReader(socket.getInputStream))
   private val socketWriter = new PrintWriter(socket.getOutputStream, true)
 
@@ -33,12 +33,16 @@ class ServiceWorker(val socket: Socket)(using ExecutionContext) extends LazyLogg
         case Success(request) =>
           val requestIsDuplicate = prevState.request.exists(_.id == request.id)
           if requestIsDuplicate then
-          // Previous request ID is the same as the current.
-          // This could cause issues, so we fail the request.
+            // Previous request ID is the same as the current.
+            // This could cause issues, so we fail the request.
             for
-              _ <- writeResponse(Response(request.id, Status.Failure))
+              _ <- writeResponse(Response(request.id, Status.Failure("Duplicate request id")))
             yield None
           else
+            request.message match
+              case Message.PutRecord(shardId, data) =>
+                messageQueue.putRecord(shardId, data)
+
             for
               _ <- writeResponse(Response(request.id, Status.Success))
             yield Some(State(request = Some(request)))
